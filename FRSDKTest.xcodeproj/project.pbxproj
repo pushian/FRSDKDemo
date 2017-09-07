@@ -19,7 +19,6 @@
 		85E767711F5FABF4002880A0 /* SnapKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 85A39D151F4EB8B600BDDD9A /* SnapKit.framework */; };
 		85E767721F5FABF4002880A0 /* SVProgressHUD.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 85A39D141F4EB8B600BDDD9A /* SVProgressHUD.framework */; };
 		85E767731F5FABF4002880A0 /* SwiftyJSON.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 85A39D131F4EB8B600BDDD9A /* SwiftyJSON.framework */; };
-		85E767761F5FABF4002880A0 /* Async.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 85E767741F5FABF4002880A0 /* Async.framework */; };
 		85E767771F5FABF4002880A0 /* PushianPhotoTweaks.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 85E767751F5FABF4002880A0 /* PushianPhotoTweaks.framework */; };
 /* End PBXBuildFile section */
 
@@ -47,7 +46,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				85E767761F5FABF4002880A0 /* Async.framework in Frameworks */,
 				85E767771F5FABF4002880A0 /* PushianPhotoTweaks.framework in Frameworks */,
 				85E7676E1F5FABF4002880A0 /* Alamofire.framework in Frameworks */,
 				85E7676F1F5FABF4002880A0 /* AlamofireImage.framework in Frameworks */,
@@ -190,7 +188,6 @@
 				"$(SRCROOT)/Carthage/Build/iOS/SVProgressHUD.framework",
 				"$(SRCROOT)/Carthage/Build/iOS/SwiftyJSON.framework",
 				"$(SRCROOT)/Carthage/Build/iOS/FRPhotoCollageSDK.framework",
-				"$(SRCROOT)/Carthage/Build/iOS/Async.framework",
 				"$(SRCROOT)/Carthage/Build/iOS/PushianPhotoTweaks.framework",
 			);
 			outputPaths = (
@@ -200,7 +197,6 @@
 				"$(DERIVED_FILE_DIR)/SVProgressHUD.framework",
 				"$(DERIVED_FILE_DIR)/SnapKit.framework",
 				"$(DERIVED_FILE_DIR)/SwiftyJSON.framework",
-				"$(DERIVED_FILE_DIR)/Async.framework",
 				"$(DERIVED_FILE_DIR)/PushianPhotoTweaks.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
