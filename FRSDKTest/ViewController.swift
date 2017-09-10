@@ -43,8 +43,8 @@ class OpenViewController: UIViewController {
     }
     
     func sdkHandler() {
-        let vc = FRPhotoCollageCreate()
-        vc.delegate = self 
+        let vc = FRPhotoCollageCreate(uniqueId: "yangfan liu")
+        vc.delegate = self
         
         let nav = UINavigationController(rootViewController: vc)
         self.present(nav, animated: true, completion: nil)
@@ -52,14 +52,13 @@ class OpenViewController: UIViewController {
 }
 
 extension OpenViewController: FRPhotoCollageCreateDelegate {
-    func didTapCancel() {
+    func FRDidTapCancel() {
         debugPrint("did tap cancel")
-        self.dismiss(animated: true, completion: nil)
+        //        self.dismiss(animated: true, completion: nil)
     }
     
-    func didTapDone() {
+    func FRDidTapDone() {
         debugPrint("did tap done")
-        self.dismiss(animated: true, completion: nil)
+        //        self.dismiss(animated: true, completion: nil)
     }
-    
 }
