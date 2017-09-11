@@ -43,7 +43,7 @@ class OpenViewController: UIViewController {
     }
     
     func sdkHandler() {
-        let vc = FRPhotoCollageCreate(uniqueId: "yangfan liu")
+        let vc = FRPhotoCollageCreate(uniqueId: "\(UIDevice.current.identifierForVendor!.uuidString)")
         vc.delegate = self
         
         let nav = UINavigationController(rootViewController: vc)
