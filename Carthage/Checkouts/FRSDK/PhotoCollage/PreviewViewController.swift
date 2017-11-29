@@ -11,6 +11,7 @@ import Social
 import Messages
 import MessageUI
 import SVProgressHUD
+import Photos
 
 
 class PreviewViewController: BaseViewController {
@@ -24,6 +25,8 @@ class PreviewViewController: BaseViewController {
     fileprivate var lats = [String?]()
     fileprivate var lons = [String?]()
     fileprivate var shared = [String]()
+    fileprivate var times = [String?]()
+
     
     fileprivate var bkView: UIImageView = {
         let t = UIImageView()
@@ -99,13 +102,15 @@ class PreviewViewController: BaseViewController {
         t.clipsToBounds = true
         return t
     }()
-    init(image: UIImage, images: [UIImage?], userId: String, lats: [String?], lons: [String?]) {
+    init(image: UIImage, images: [UIImage?], userId: String, lats: [String?], lons: [String?], dates: [String?]) {
         super.init(nibName: nil, bundle: nil)
         self.image = image
         self.faceImages = images
+        debugPrint("there is \(self.faceImages.count) images")
         self.userId = userId
         self.lats = lats
         self.lons = lons
+        self.times = dates
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -143,8 +148,8 @@ class PreviewViewController: BaseViewController {
         view.addSubview(mailView)
         
         
-        setRightBtn(title: "Done")
-        setTitle(title: "Preview & Share")
+        setRightBtn(title: "Done & Save")
+        setTitle(title: "Preview")
         
         setConstraints()
     }
@@ -190,15 +195,32 @@ class PreviewViewController: BaseViewController {
     
     override func rightHandler() {
         super.rightHandler()
-        
-        debugPrint("right handler")
-        doneHandler()
+        let alertController = UIAlertController(title: "Reminder", message: "Sentosa will also receive the collage.", preferredStyle: .alert)
+        alertController.addAction(UIAlertAction(title: "OK", style: .default, handler: { (action) in
+            self.doneHandler()
+        }))
+        alertController.addAction(UIAlertAction(title: "Cancel", style: .default, handler: { (action) in
+            UIImageWriteToSavedPhotosAlbum(self.image, self, #selector(self.image(_:didFinishSavingWithError:contextInfo:)), nil)
+        }))
+        present(alertController, animated: true, completion: nil)
     }
     
     override func leftHandler() {
         _ = self.navigationController?.popViewController(animated: true)
     }
 
+    func addAsset(image: UIImage, location: CLLocation? = nil) {
+        PHPhotoLibrary.shared().performChanges({
+            // Request creating an asset from the image.
+            let creationRequest = PHAssetChangeRequest.creationRequestForAsset(from: image)
+            // Set metadata location
+            if let location = location {
+                creationRequest.location = location
+            }
+        }, completionHandler: { success, error in
+            if !success { NSLog("error creating asset: \(error)") }
+        })
+    }
     
     func doneHandler() {
         
@@ -209,58 +231,74 @@ class PreviewViewController: BaseViewController {
 //        let notification = Notification(name: Constants.notifications.FRdidTapDone, object: nil, userInfo: nil)
 //        NotificationCenter.default.post(notification)
 //        SVProgressHUD.show()
+        
+        let notification = Notification(name: Constants.notifications.FRdidTapDone, object: nil, userInfo: nil)
+        NotificationCenter.default.post(notification)
+        
+        UIImageWriteToSavedPhotosAlbum(image, self, #selector(image(_:didFinishSavingWithError:contextInfo:)), nil)
+        
+//        addAsset(image: image, location: CLLocation(latitude: 1.298013, longitude: 103.786080))
         let collageId = "\(UIDevice.current.identifierForVendor!.uuidString)+\(NSDate().timeIntervalSince1970)+\(arc4random())"
 //        for (name,(age,gender)) in zip(names,zip(ages,genders)) {
         debugPrint(collageId)
         
-        SVProgressHUD.show()
+//        SVProgressHUD.show()
+//        SVProgressHUD.show(withStatus: "Uploading the image...")
         processCount = 0
         processedSuccess = 0
         processedFail = 0
         
-        for (face, (lat, lon)) in zip(faceImages, zip(lats, lons)) {
+        for (time, (face, (lat, lon))) in zip(times, zip(faceImages, zip(lats, lons))) {
             if let face = face {
                 processCount = processCount + 1
                 var latString = lat
                 var lonString = lon
+                var timeString = time
+
                 if latString == nil {
                     latString = "empty"
                 }
                 if lonString == nil {
                     lonString = "empty"
                 }
-                HttpClient.sharedInstance.sendImage(image: face, userId: userId, collageId: collageId, shared: self.shared, lat: latString!, lon: lonString!, completion: { (isSuccess) in
+                if timeString == nil {
+                    timeString = "empty"
+                }
+                HttpClient.sharedInstance.sendImage(image: face, userId: userId, collageId: collageId, shared: self.shared, lat: latString!, lon: lonString!, date: timeString!, completion: { (isSuccess) in
                     debugPrint(isSuccess)
                     if isSuccess {
                         self.processedSuccess = self.processedSuccess + 1
                     } else {
                         self.processedFail = self.processedFail + 1
                     }
-                    
+
                 })
+//                debugPrint("start to resize")
+//                face.resizeImage()
+//                debugPrint("end to resize")
             }
         }
-        DispatchQueue.global(qos: .background).async {
-            debugPrint("before the while")
-            debugPrint(self.processCount)
-            debugPrint(self.processedFail)
-            debugPrint(self.processedSuccess)
-            while self.processedFail + self.processedSuccess != self.processCount {
-                debugPrint("i am inside")
-                debugPrint(self.processedSuccess)
-            }
-            debugPrint("after the while")
-            debugPrint(self.processedFail)
-            debugPrint(self.processedSuccess)
-            SVProgressHUD.dismiss()
-            _ = self.dismiss(animated: true, completion: nil)
-            
-            let notification = Notification(name: Constants.notifications.FRdidTapDone, object: nil, userInfo: nil)
-            NotificationCenter.default.post(notification)
-//            if processedFail != 0 {
-//                self.FRDisplayAlert(title: "Error", message: "Server Error. Please try again later", complete: <#T##(() -> Void)?##(() -> Void)?##() -> Void#>)
+//        DispatchQueue.global(qos: .background).async {
+//            debugPrint("before the while")
+//            debugPrint(self.processCount)
+//            debugPrint(self.processedFail)
+//            debugPrint(self.processedSuccess)
+//            while self.processedFail + self.processedSuccess != self.processCount {
+//                debugPrint("i am inside")
+//                debugPrint(self.processedSuccess)
 //            }
-        }
+//            debugPrint("after the while")
+//            debugPrint(self.processedFail)
+//            debugPrint(self.processedSuccess)
+//            SVProgressHUD.dismiss()
+//            _ = self.dismiss(animated: true, completion: nil)
+//            
+        
+////            if processedFail != 0 {
+////                self.FRDisplayAlert(title: "Error", message: "Server Error. Please try again later", complete: <#T##(() -> Void)?##(() -> Void)?##() -> Void#>)
+////            }
+//        }
+
 
 //        HttpClient.sharedInstance.sendImage(image: (self.image)!, userId: "1234567", collageId: "1234567", shared: ["facebook", "twitter"], lat: "1.111", lon: "2.222") { (isSuccess) in
 //            debugPrint(isSuccess)
@@ -342,6 +380,20 @@ extension PreviewViewController: MFMailComposeViewControllerDelegate {
                                didFinishWith result: MFMailComposeResult, error: Error?) {
         shared.append("Email")
         _ = controller.dismiss(animated: true, completion: nil)
+    }
+    
+    func image(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
+        if let error = error {
+            // we got back an error!
+            let ac = UIAlertController(title: "Save error", message: error.localizedDescription, preferredStyle: .alert)
+            ac.addAction(UIAlertAction(title: "OK", style: .default))
+            present(ac, animated: true)
+        } else {
+            SVProgressHUD.showSuccess(withStatus: "Saved to album")
+//            SVProgressHUD.showSuccess(withStatus: <#T##String!#>)
+//            _ = self.dismiss(animated: true, completion: nil)
+
+        }
     }
 }
 

@@ -76,8 +76,9 @@ class BaseViewController: UIViewController {
         }
         leftBtn.snp.makeConstraints { (make) in
             make.centerY.equalToSuperview()
-            make.leading.equalTo(Scale.scaleX(x: 13))
-            make.width.equalTo(Scale.scaleX(x: 50))
+//            make.leading.equalTo(Scale.scaleX(x: 13))
+            make.leading.equalTo(Scale.scaleX(x: 15))
+            make.width.equalTo(Scale.scaleX(x: 76))
             make.height.equalToSuperview()
         }
         titleLabel.snp.makeConstraints { (make) in

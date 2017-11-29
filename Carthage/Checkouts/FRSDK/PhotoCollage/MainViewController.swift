@@ -22,17 +22,20 @@ class MainViewController: BaseViewController {
     fileprivate let locationManager = CLLocationManager()
     fileprivate var currentLat: String?
     fileprivate var currentLon: String?
+    fileprivate var currentLocation: CLLocation?
     
     fileprivate var images: [UIImage?] = [nil, nil, nil, nil, nil]
     fileprivate var lats: [String?] = [nil, nil, nil, nil, nil]
     fileprivate var lons: [String?] = [nil, nil, nil, nil, nil]
+    fileprivate var times: [String?] = [nil, nil, nil, nil, nil]
     
     fileprivate var totalCount = 0
     fileprivate var count = 0
     fileprivate var validImages = [UIImage]()
     fileprivate var validLats = [String?]()
     fileprivate var validLons = [String?]()
-    
+    fileprivate var validTime = [String?]()
+
     fileprivate var mostFaces: UIImage?
     fileprivate var oneFace = [UIImage]()
     fileprivate var moreFace = [UIImage]()
@@ -40,13 +43,17 @@ class MainViewController: BaseViewController {
     
     fileprivate var mostFaceLat: String?
     fileprivate var mostFaceLon: String?
+    fileprivate var mostFaceDate: String?
     fileprivate var noFaceLat = [String?]()
     fileprivate var noFaceLon = [String?]()
+    fileprivate var noFaceDate = [String?]()
     fileprivate var oneFaceLat = [String?]()
     fileprivate var oneFaceLon = [String?]()
+    fileprivate var oneFaceDate = [String?]()
     fileprivate var moreFaceLat = [String?]()
     fileprivate var moreFaceLon = [String?]()
-    
+    fileprivate var moreFaceDate = [String?]()
+
     fileprivate var didLoad = false
     fileprivate var selectedIndex = 0
     fileprivate var selectedFrame = 0
@@ -68,12 +75,19 @@ class MainViewController: BaseViewController {
         t.clipsToBounds = true
         return t
     }()
+    fileprivate var bkCropView: UIImageView = {
+        let t = UIImageView()
+        t.backgroundColor = UIColor.clear
+        t.isUserInteractionEnabled = true
+        t.clipsToBounds = true
+        return t
+    }()
     
     fileprivate var overLay: UIView! = {
         let t = UIView()
         t.backgroundColor = .white
         t.alpha = 0.3
-        t.isUserInteractionEnabled = true
+        t.isUserInteractionEnabled = false
         return t
     }()
     fileprivate var collectionView: UICollectionView! = {
@@ -93,7 +107,7 @@ class MainViewController: BaseViewController {
     
     fileprivate var frames = [PhotoFrame(frame: CGRect.zero), PhotoFrame(frame: CGRect.zero), PhotoFrame(frame: CGRect.zero), PhotoFrame(frame: CGRect.zero), PhotoFrame(frame: CGRect.zero)]
     fileprivate var widths = [106, 92, 60, 118, 166]
-    fileprivate var heights = [147, 128, 95, 139, 120]
+    fileprivate var heights = [147, 128, 95, 120, 110]
 //    fileprivate var xs = []
     
     
@@ -105,7 +119,6 @@ class MainViewController: BaseViewController {
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -123,12 +136,14 @@ class MainViewController: BaseViewController {
         view.addSubview(infoLabel)
         view.addSubview(bkView)
         bkView.addSubview(overLay)
+        bkView.addSubview(bkCropView)
         bkView.image = Constants.testImages[selectedIndex]
         view.addSubview(collectionView)
         collectionView.delegate = self
         collectionView.dataSource = self
 //        self.post
         setConstraints()
+        self.setupFrames()
 //        getPhoto()
 //        getPhoto { (image) in
 //            if let image = image {
@@ -183,6 +198,12 @@ class MainViewController: BaseViewController {
             make.height.equalTo(Constants.mainWidth * Constants.bkImageRatio)
             make.top.equalTo(infoLabel.snp.bottom).offset(Scale.scaleY(y: 14))
         }
+        bkCropView.snp.makeConstraints { (make) in
+            make.leading.equalToSuperview()
+            make.trailing.equalToSuperview()
+            make.top.equalToSuperview()
+            make.bottom.equalTo(Scale.scaleY(y: -55))
+        }
         overLay.snp.makeConstraints { (make) in
             make.edges.equalToSuperview()
         }
@@ -193,7 +214,6 @@ class MainViewController: BaseViewController {
             make.top.equalTo(bkView.snp.bottom)
         }
     }
-    
     
     func checkStatus() {
         // Get the current authorization state.
@@ -281,9 +301,6 @@ class MainViewController: BaseViewController {
                 if day > 2 {
                     return false
                 }
-                debugPrint("===========")
-                debugPrint(date.daysBetweenDate(toDate: Date()))
-                
             }
             if let location = asset.location?.coordinate {
                 for each in Constants.sentosaRegions {
@@ -326,10 +343,17 @@ class MainViewController: BaseViewController {
                     width = theMax * ratio
                 }
                 
-                let targetSize = CGSize(width: width, height: height)
                 
                 let lat = ass.location?.coordinate.latitude
                 let lon = ass.location?.coordinate.longitude
+                let date = ass.creationDate
+                
+                let targetSize = CGSize(width: width, height: height)
+                let str = "yyyy-MM-dd'T'HH:mm:ss.SSSZZZZZ"
+                let format = DateFormatter()
+                format.dateFormat = str
+                let dateStr = format.string(from: date!)
+                validTime.append(dateStr)
                 validLats.append(String(lat!))
                 validLons.append(String(lon!))
                 
@@ -353,39 +377,42 @@ class MainViewController: BaseViewController {
         let detector = CIDetector(ofType: CIDetectorTypeFace, context: nil, options: [CIDetectorAccuracy: CIDetectorAccuracyHigh])
         var tmpCount = 0
         var max: Int? = 0
-        for (face, (lat, lon)) in zip(self.validImages, zip(self.validLats, self.validLons)){
+        for (date, (face, (lat, lon))) in zip(self.validTime, zip(self.validImages, zip(self.validLats, self.validLons))) {
             tmpCount = tmpCount + 1
             let ciImage = CIImage(image: face)
-//            let accuracy = cide
             let foundFaces = detector?.features(in: ciImage!)
+            debugPrint("found faces: \(foundFaces?.count)")
             if let count = foundFaces?.count {
                 if count > max! {
                     self.mostFaces = face
                     self.mostFaceLat = lat
                     self.mostFaceLon = lon
+                    self.mostFaceDate = date
                     max = foundFaces?.count
+                    debugPrint("updated max is \(max)")
                 } else if count == 0 {
                     self.noFace.append(face)
                     self.noFaceLat.append(lat)
                     self.noFaceLon.append(lon)
+                    self.noFaceDate.append(date)
                 } else if count == 1 {
                     self.oneFace.append(face)
                     self.oneFaceLat.append(lat)
                     self.oneFaceLon.append(lon)
+                    self.oneFaceDate.append(date)
                 } else {
                     self.moreFace.append(face)
                     self.moreFaceLat.append(lat)
                     self.moreFaceLon.append(lon)
+                    self.moreFaceDate.append(date)
                 }
             }
         }
         
         self.validImages = [UIImage]()
         SVProgressHUD.dismiss()
-//        Async.main{
         DispatchQueue.main.async {
-
-            self.setupFrames()
+            self.updateFrames()
         }
         
     }
@@ -472,7 +499,7 @@ class MainViewController: BaseViewController {
         for each in frames {
             each.tag = tag
             tag += 1
-            bkView.addSubview(each)
+            bkCropView.addSubview(each)
         }
         
         for index in 0..<frames.count {
@@ -533,7 +560,7 @@ class MainViewController: BaseViewController {
                 rotateGestureThree.delegate = self
             case 3:
                 frames[index].snp.makeConstraints({ (make) in
-                    make.bottom.equalTo(Scale.scaleY(y: -35))
+                    make.bottom.equalTo(Scale.scaleY(y: -10))
                     make.leading.equalTo(Scale.scaleX(x: 25))
                     make.width.equalTo(widths[index])
                     make.height.equalTo(heights[index])
@@ -552,7 +579,7 @@ class MainViewController: BaseViewController {
                 rotateGestureFour.delegate = self
             default:
                 frames[index].snp.makeConstraints({ (make) in
-                    make.bottom.equalTo(Scale.scaleY(y: -60))
+                    make.bottom.equalTo(Scale.scaleY(y: -10))
                     make.trailing.equalTo(Scale.scaleX(x: -20))
                     make.width.equalTo(widths[index])
                     make.height.equalTo(heights[index])
@@ -575,7 +602,9 @@ class MainViewController: BaseViewController {
             each.noImage(withLabelOne: false)
         }
         frames[4].noImage()
-        
+    }
+    
+    func updateFrames() {
         var index = 0
         if !applyNoFace(index: index) {
             if !applyOneFace(index: index) {
@@ -616,9 +645,7 @@ class MainViewController: BaseViewController {
                 }
             }
         }
-        
     }
-    
     func applyNoFace(index: Int) -> Bool {
         let frame = frames[index]
         if noFace.isEmpty {
@@ -628,9 +655,11 @@ class MainViewController: BaseViewController {
         let image = noFace[randomIndex]
         frame.image = image
         frame.gotImage()
+        resizeFrame(index: index)
         images[index] = image
         lats[index] = noFaceLat[randomIndex]
         lons[index] = noFaceLon[randomIndex]
+        times[index] = noFaceDate[randomIndex]
         noFace.remove(at: randomIndex)
         return true
 
@@ -645,9 +674,11 @@ class MainViewController: BaseViewController {
         let image = oneFace[randomIndex]
         frame.image = image
         frame.gotImage()
+        resizeFrame(index: index)
         images[index] = image
         lats[index] = oneFaceLat[randomIndex]
         lons[index] = oneFaceLon[randomIndex]
+        times[index] = oneFaceDate[randomIndex]
         oneFace.remove(at: randomIndex)
         return true
     }
@@ -662,9 +693,11 @@ class MainViewController: BaseViewController {
         let image = moreFace[randomIndex]
         frame.image = image
         frame.gotImage()
+        resizeFrame(index: index)
         images[index] = image
         lats[index] = moreFaceLat[randomIndex]
         lons[index] = moreFaceLon[randomIndex]
+        times[index] = moreFaceDate[randomIndex]
         moreFace.remove(at: randomIndex)
         return true
     }
@@ -677,23 +710,27 @@ class MainViewController: BaseViewController {
         }
         frame.image = mostFaces!
         frame.gotImage()
+        resizeFrame(index: index)
         images[index] = mostFaces
         lats[index] = mostFaceLat
-        lons[index] = mostFaceLat
+        lons[index] = mostFaceLon
+        times[index] = mostFaceDate
         mostFaces = nil
         return true
     }
     
     override func rightHandler() {
         super.rightHandler()
-        for each in frames {
-            if each.image == nil {
-                FRDisplayAlert(title: "Reminder", message: "Please ensure there is no empty frame!", complete: nil)
-                return
+        for each in bkCropView.subviews {
+            if let view = each as? UIImageView {
+                if view.image == nil {
+                    FRDisplayAlert(title: "Reminder", message: "Please ensure there is no empty frame!", complete: nil)
+                    return
+                }
             }
         }
         let image = UIImage(view: bkView)
-        let vc = PreviewViewController(image: image, images: images, userId: userId, lats: lats, lons: lons)
+        let vc = PreviewViewController(image: image, images: images, userId: userId, lats: lats, lons: lons, dates: times)
         self.navigationController?.pushViewController(vc, animated: true)
     }
     
@@ -708,10 +745,11 @@ class MainViewController: BaseViewController {
     }
     
     func PanHandler(gesture: UIPanGestureRecognizer) {
+        debugPrint("i am in")
         if ((gesture.state == .changed) || (gesture.state == .ended)) {
-            let translation = gesture.translation(in: bkView)
+            let translation = gesture.translation(in: bkCropView)
             gesture.view?.center = CGPoint(x: (gesture.view?.center.x)! + translation.x, y: (gesture.view?.center.y)! + translation.y)
-            gesture.setTranslation(CGPoint.zero, in: bkView)
+            gesture.setTranslation(CGPoint.zero, in: bkCropView)
         }
     }
 //    func PanHandlerTwo(gesture: UIPanGestureRecognizer) {
@@ -762,7 +800,7 @@ class MainViewController: BaseViewController {
         let tag = (gesture.view)!.tag
         selectedFrame = tag
         if frames[selectedFrame].image == nil {
-            let actionSheet = UIActionSheet(title: "Add A Photo", delegate: self, cancelButtonTitle: "Cancel", destructiveButtonTitle: nil, otherButtonTitles: "Take A Photo", "Select From Gallery")
+            let actionSheet = UIActionSheet(title: "Add A Photo", delegate: self, cancelButtonTitle: "Cancel", destructiveButtonTitle: nil, otherButtonTitles: "Take A Photo", "Select From Gallery", "Remove")
             actionSheet.show(in: self.view)
         } else {
             let actionSheet = UIActionSheet(title: "Edit Photo", delegate: self, cancelButtonTitle: "Cancel", destructiveButtonTitle: nil, otherButtonTitles: "Crop & Rotate", "Replace", "Remove")
@@ -770,6 +808,19 @@ class MainViewController: BaseViewController {
         }
     }
     
+    func addAsset(image: UIImage, location: CLLocation? = nil) {
+        PHPhotoLibrary.shared().performChanges({
+            // Request creating an asset from the image.
+            let creationRequest = PHAssetChangeRequest.creationRequestForAsset(from: image)
+            // Set metadata location
+            if let location = location {
+                creationRequest.location = location
+            }
+        }, completionHandler: { success, error in
+            if !success { NSLog("error creating asset: \(error)") }
+        })
+    }
+
 }
 
 extension MainViewController: UICollectionViewDataSource, UICollectionViewDelegate {
@@ -832,8 +883,10 @@ extension MainViewController: UIActionSheetDelegate {
             let vc = IGRPhotoTweakViewController()
             vc.image = self.frames[selectedFrame].image
             vc.delegate = self
+//            vc.rotata
             let nav = UINavigationController(rootViewController: vc)
             nav.navigationBar.isHidden = true
+            
             self.present(nav, animated: true, completion: nil)
         case "Replace":
             let actionSheet = UIActionSheet(title: "Replace a Photo", delegate: self, cancelButtonTitle: "Cancel", destructiveButtonTitle: nil, otherButtonTitles: "Take A Photo", "Select From Gallery")
@@ -841,8 +894,12 @@ extension MainViewController: UIActionSheetDelegate {
         case "Remove":
             let alertController = UIAlertController(title: "", message: "Are you sure to remove this photo?", preferredStyle: .alert)
             alertController.addAction(UIAlertAction(title: "Yes", style: .default, handler: { (action) in
+                debugPrint(self.selectedFrame)
                 self.frames[self.selectedFrame].snp.removeConstraints()
                 self.frames[self.selectedFrame].removeFromSuperview()
+//                self.images.remove(at: self.selectedFrame)
+//                self.frames.remove(at: self.selectedFrame)
+                self.images[self.selectedFrame] = nil
             }))
             alertController.addAction(UIAlertAction(title: "Cancel", style: .default, handler: nil))
             present(alertController, animated: true, completion: nil)
@@ -926,6 +983,13 @@ extension MainViewController: UIImagePickerControllerDelegate, UINavigationContr
                     let lon = String(location.coordinate.longitude)
                     lons[selectedFrame] = lon
                 }
+                if let date = asset.creationDate {
+                    let str = "yyyy-MM-dd'T'HH:mm:ss.SSSZZZZZ"
+                    let format = DateFormatter()
+                    format.dateFormat = str
+                    let dateStr = format.string(from: date)
+                    times[selectedFrame] = dateStr
+                }
                 // ... Other stuff like dismiss omitted
             }
             
@@ -951,6 +1015,7 @@ extension MainViewController: UIImagePickerControllerDelegate, UINavigationContr
                 self.images[selectedFrame] = image
                 lats[selectedFrame] = currentLat
                 lons[selectedFrame] = currentLon
+                addAsset(image: image, location: currentLocation)
                 self.frames[selectedFrame].gotImage()
                 dismiss(animated: true, completion: {
                     let vc = IGRPhotoTweakViewController()
@@ -994,23 +1059,25 @@ extension MainViewController: IGRPhotoTweakViewControllerDelegate {
     
     func resizeFrame(index: Int) {
         debugPrint("resizing frame")
-        let width = (frames[index].image)!.size.width
-        let height = (frames[index].image)!.size.height
-        debugPrint(width)
-        debugPrint(height)
-        let ratio = width / height
-        let originalWidth = frames[selectedFrame].bounds.width
-        let originalHeight = frames[selectedFrame].bounds.height
-        debugPrint(originalWidth)
-        debugPrint(originalHeight)
-        let max = originalWidth > originalHeight ? originalWidth : originalHeight
-        
-        if ratio > 1 {
-            frames[selectedFrame].bounds.size.width = max
-            frames[selectedFrame].bounds.size.height = max / ratio
-        } else {
-            frames[selectedFrame].bounds.size.height = max
-            frames[selectedFrame].bounds.size.width = max * ratio
+        if let image = frames[index].image {
+            let width = image.size.width
+            let height = image.size.height
+            debugPrint(width)
+            debugPrint(height)
+            let ratio = width / height
+            let originalWidth = frames[index].bounds.width
+            let originalHeight = frames[index].bounds.height
+            debugPrint(originalWidth)
+            debugPrint(originalHeight)
+            let max = originalWidth > originalHeight ? originalWidth : originalHeight
+            //        if
+            if ratio > 1 {
+                frames[index].bounds.size.width = max
+                frames[index].bounds.size.height = max / ratio
+            } else {
+                frames[index].bounds.size.height = max
+                frames[index].bounds.size.width = max * ratio
+            }
         }
     }
 }
@@ -1024,6 +1091,7 @@ extension MainViewController: CLLocationManagerDelegate {
             debugPrint("locations = \(locValue.latitude) \(locValue.longitude)")
             currentLat = String(locValue.latitude)
             currentLon = String(locValue.longitude)
+            currentLocation = location
         }
     }
     
